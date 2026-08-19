@@ -19,7 +19,7 @@ curl -fsSL https://raw.githubusercontent.com/Ietsiee/bub/main/install.sh | sh
 ```
 
 ### Make
-Requirments: sudo, install and make
+Requirments: sudo, install, python3, make and request (install with 'pip install request')
 ```
 git clone https://github.com/Ietsiee/bub.git
 cd bub
