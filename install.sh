@@ -29,4 +29,3 @@ echo "Cleaning up..."
 rm -rf bub
 
 echo "Successfully installed bub!"
-bub -h
