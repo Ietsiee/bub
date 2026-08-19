@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="screenshot.png" alt="ifetch Screenshot" width="100%">
+  <img src="screenshot.png" alt="bub Screenshot" width="100%">
 </p>
 
 # bub
