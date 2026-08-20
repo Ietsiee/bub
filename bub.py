@@ -1,25 +1,19 @@
-#!/bin/python3
-import argparse
+from pathlib import Path
+import shutil
 import sys
+import argparse
 import requests
 import hashlib
 import os
 import zipfile
 import tarfile
 
-# Arguments
-parser = argparse.ArgumentParser(
-    prog="bub",
-    description="bub file downloader"
-)
+cfg = Path.home() / ".config" / "bub" / "bub.config"
 
-parser.add_argument("file", nargs="?", help="bub file to use")
-parser.add_argument("-v", "--version", action="version", version="bub 1.0.0")
-
-args = parser.parse_args()
-
-if not args.file:
-    parser.error("a .bub file is required")
+# Copy bub.config 
+if not cfg.exists():
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy("bub.config", cfg)
 
 # Display bub banner
 print(r"""
@@ -27,7 +21,68 @@ print(r"""
 | |__ _  _| |__
 | '_ \ || | '_ \
 |_.__/\_,_|_.__/
+
 """)
+
+# Load bubble.config
+class Config:
+    pass
+
+config = Config()
+
+with open(cfg) as f:
+    for line in f:
+        line = line.strip()
+
+        # Skip empty lines and comments
+        if not line or line.startswith("#"):
+            continue
+
+        key, value = line.split("=", 1)
+        setattr(config, key, value)
+
+config.default = Path(config.default).expanduser()
+config.default.mkdir(parents=True, exist_ok=True)
+
+# Save config to bub.config
+def save_config():
+    with open(cfg, "w") as f:
+        for key, value in vars(config).items():
+            f.write(f"{key}={value}\n")
+
+# Arguments
+parser = argparse.ArgumentParser(
+    prog="bub",
+)
+
+parser.add_argument("bubfile", nargs="?", help=".bub file to use")
+parser.add_argument("-v", "--version", action="version", version="bub 1.0.1")
+parser.add_argument(
+    "-d",
+    "--directory",
+    nargs="?",
+    const="DEFAULT",
+    default=None,
+    metavar="directory",
+    help="set a save location",
+)
+
+args = parser.parse_args()
+
+if args.directory == "DEFAULT":
+    config.default = Path.home() / "Downloads" / "bub"
+    save_config()
+    print(f"[bub] Default: {config.default}")
+    sys.exit(0)
+
+elif args.directory is not None:
+    config.default = Path(args.directory).expanduser()
+    save_config()
+    print(f"[bub] Default: {config.default}")
+    sys.exit(0)
+
+if args.bubfile is None:
+    parser.error("a .bub file is required")
 
 # Read .bub file
 class Bub:
@@ -36,28 +91,35 @@ class Bub:
 bub = Bub()
 
 try:
-    with open(args.file) as f:
+    with open(args.bubfile) as f:
         for line in f:
-            if not line.strip():
+            line = line.strip()
+
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
                 continue
 
-            key, value = line.strip().split("=", 1)
+            key, value = line.split("=", 1)
             setattr(bub, key, value)
 
 except FileNotFoundError:
-    print(f"[bub] Error: file not found: {args.file}")
+    print(f"[bub] Error: file not found: {args.bubfile}")
     sys.exit(1)
 
-# Display name
+# Name
 print(bub.name)
 
-# Download file
+# Note
+if bub.note:
+    print(f"[bub] Note: {bub.note}")
+
+# Download
 try:
     with requests.get(bub.source, stream=True, timeout=10) as r:
         r.raise_for_status()
 
         if "content-length" in r.headers:
-            with open(bub.filename, "wb") as f:
+            with open(config.default / bub.filename, "wb") as f:
                 for chunk in r.iter_content(8192):
                     f.write(chunk)
                     print(
@@ -66,7 +128,7 @@ try:
                         end=""
                     )
         else:
-            with open(bub.filename, "wb") as f:
+            with open(config.default / bub.filename, "wb") as f:
                 for chunk in r.iter_content(8192):
                     f.write(chunk)
                     print(
@@ -80,38 +142,38 @@ except requests.RequestException as e:
     print(f"[bub] Error: download failed: {e}")
     exit(1)
 
-# Get SHA-256 (optional)
+#SHA-256 (optional)
 if not hasattr(bub, "sha256") or not bub.sha256:
     print("[bub] 2/4 SHA-256: skipping")
 
-elif hashlib.sha256(open(bub.filename, "rb").read()).hexdigest() == bub.sha256:
+elif hashlib.sha256(open(config.default / bub.filename, "rb").read()).hexdigest() == bub.sha256:
     print("[bub] 2/4 SHA-256: Correct")
 
 else:
     print("[bub] 2/4 SHA-256: Incorrect")
-    os.remove(bub.filename)
+    os.remove(config.default / bub.filename)
     exit(1)
 
-# Extract archive (optional)
+# Extract (optional)
 if bub.filename.endswith(".zip"):
     print("[bub] 3/4 Extracting: ZIP")
 
-    os.makedirs(bub.filename.split(".zip")[0], exist_ok=True)
+    os.makedirs(config.default / bub.filename.split(".zip")[0], exist_ok=True)
 
-    with zipfile.ZipFile(bub.filename) as f:
-        f.extractall(bub.filename.split(".zip")[0])
+    with zipfile.ZipFile(config.default / bub.filename) as f:
+        f.extractall(config.default / bub.filename.split(".zip")[0])
 
-    os.remove(bub.filename)
+    os.remove(config.default / bub.filename)
 
-elif tarfile.is_tarfile(bub.filename):
+elif tarfile.is_tarfile(config.default / bub.filename):
     print("[bub] 3/4 Extracting: TAR")
 
     os.makedirs(bub.filename.split(".tar")[0], exist_ok=True)
 
-    with tarfile.open(bub.filename) as f:
+    with tarfile.open(config.default / bub.filename) as f:
         f.extractall(bub.filename.split(".tar")[0])
 
-    os.remove(bub.filename)
+    os.remove(config.default / bub.filename)
 
 else:
     print("[bub] 3/4 Extracting: Skipping")

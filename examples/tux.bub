@@ -1,0 +1,6 @@
+# This is a example
+name=Tux Image
+note=
+filename=tux.png
+source=https://raw.githubusercontent.com/garrett/Tux/master/tux-large.png
+sha256=

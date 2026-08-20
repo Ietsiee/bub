@@ -1,0 +1,16 @@
+# Comments and empty lines are supported
+
+# Banner name
+name=Example Zip
+
+# Optional note leave empty to skip
+note=Hello World!
+
+# Saved filename .zip and .tar files are extracted automatically
+filename=example.zip
+
+# Source URL
+source=https://example.com/example.zip
+
+# Leave empty to skip SHA-256 checksum
+sha256=

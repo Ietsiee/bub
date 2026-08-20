@@ -1,0 +1,6 @@
+#This is a example
+name=Bub Zip File
+note=This downloads the zip file of bub v1.0.0
+filename=bub.zip
+source=https://github.com/Ietsiee/bub/archive/refs/tags/v1.0.0.zip
+sha256=3cf187c1c919b0bf70939ffb4e08469548a51f5c0bc8fa6a0f5a61bc1335266d
