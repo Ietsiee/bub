@@ -1,8 +1,9 @@
-from pathlib import Path
+from  pathlib import Path
 import shutil
 import sys
 import argparse
-import requests
+from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 import hashlib
 import os
 import zipfile
@@ -10,10 +11,21 @@ import tarfile
 
 cfg = Path.home() / ".config" / "bub" / "bub.config"
 
-# Copy bub.config 
+# Create config class
+class Config:
+    pass
+
+config = Config()
+
+# Create bub.config 
 if not cfg.exists():
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy("bub.config", cfg)
+
+    config.default = Path.home() / "Downloads" / "bub"
+
+    with open(cfg, "w") as f:
+        for key, value in vars(config).items():
+             f.write(f"{key}={value}\n")
 
 # Display bub banner
 print(r"""
@@ -21,15 +33,9 @@ print(r"""
 | |__ _  _| |__
 | '_ \ || | '_ \
 |_.__/\_,_|_.__/
-
 """)
 
 # Load bubble.config
-class Config:
-    pass
-
-config = Config()
-
 with open(cfg) as f:
     for line in f:
         line = line.strip()
@@ -44,41 +50,25 @@ with open(cfg) as f:
 config.default = Path(config.default).expanduser()
 config.default.mkdir(parents=True, exist_ok=True)
 
-# Save config to bub.config
-def save_config():
-    with open(cfg, "w") as f:
-        for key, value in vars(config).items():
-            f.write(f"{key}={value}\n")
-
 # Arguments
 parser = argparse.ArgumentParser(
     prog="bub",
+    add_help=False,
 )
 
-parser.add_argument("bubfile", nargs="?", help=".bub file to use")
-parser.add_argument("-v", "--version", action="version", version="bub 1.0.1")
-parser.add_argument(
-    "-d",
-    "--directory",
-    nargs="?",
-    const="DEFAULT",
-    default=None,
-    metavar="directory",
-    help="set a save location",
-)
+bub_group = parser.add_argument_group("Bub file")
+bub_group.add_argument("bubfile", nargs="?", metavar="file", help=".bub file to use")
+
+parser.add_argument("-h", "--help", action="help", help="show the help message")
+parser.add_argument("-v", "--version", action="version", version="bub 1.0.1", help="show the current version")
+parser.add_argument("-c", "--config", action="store_true", help="show the bub.config file path")
+
+parser._action_groups.insert(0, parser._action_groups.pop(-1))
 
 args = parser.parse_args()
 
-if args.directory == "DEFAULT":
-    config.default = Path.home() / "Downloads" / "bub"
-    save_config()
-    print(f"[bub] Default: {config.default}")
-    sys.exit(0)
-
-elif args.directory is not None:
-    config.default = Path(args.directory).expanduser()
-    save_config()
-    print(f"[bub] Default: {config.default}")
+if args.config:
+    print(cfg)
     sys.exit(0)
 
 if args.bubfile is None:
@@ -115,22 +105,29 @@ if bub.note:
 
 # Download
 try:
-    with requests.get(bub.source, stream=True, timeout=10) as r:
-        r.raise_for_status()
+    with urlopen(bub.source, timeout=10) as r:
+        total = r.headers.get("Content-Length")
+        total = int(total) if total else None
 
-        if "content-length" in r.headers:
-            with open(config.default / bub.filename, "wb") as f:
-                for chunk in r.iter_content(8192):
-                    f.write(chunk)
+        with open(config.default / bub.filename, "wb") as f:
+            downloaded = 0
+
+            while True:
+                chunk = r.read(8192)
+                if not chunk:
+                    break
+
+                f.write(chunk)
+                downloaded += len(chunk)
+
+                if total:
+                    percent = downloaded / total * 100
                     print(
                         f"\r[bub] 1/4 Downloading: {bub.filename} "
-                        f"{f.tell() / int(r.headers['content-length']) * 100:.0f}/100",
+                        f"{percent:.0f}/100",
                         end=""
                     )
-        else:
-            with open(config.default / bub.filename, "wb") as f:
-                for chunk in r.iter_content(8192):
-                    f.write(chunk)
+                else:
                     print(
                         f"\r[bub] 1/4 Downloading: {bub.filename}",
                         end=""
@@ -138,7 +135,7 @@ try:
 
     print()
 
-except requests.RequestException as e:
+except (HTTPError, URLError, TimeoutError) as e:
     print(f"[bub] Error: download failed: {e}")
     exit(1)
 

@@ -13,17 +13,18 @@ install:
 	.venv/bin/pip install requests pyinstaller
 
 	@echo "Building bub..."
-	.venv/bin/pyinstaller --onefile --add-data "bub.config:." bub.py
+	.venv/bin/pyinstaller --onefile bub.py
 
 	@echo "Installing bub..."
 	sudo install -m 755 dist/bub $(BINDIR)/bub
 
-	@echo "bub installed successfully."
+	@echo "bub installed successfully!"
 
 uninstall:
 	@echo "Uninstalling bub..."
 	sudo rm -f $(BINDIR)/bub
-	@echo "bub uninstalled."
+
+	@echo "bub uninstalled!"
 
 clean:
 	rm -rf build dist bub.spec
